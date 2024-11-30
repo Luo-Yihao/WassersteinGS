@@ -1,0 +1,2 @@
+# WGS
+Wasserstein Gaussian Splatting 
