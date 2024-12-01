@@ -154,16 +154,19 @@ class GaussianMerge(nn.Module):
     def __init__(self):
         super(GaussianMerge, self).__init__()
 
-    def forward(self, loc1, scale1, rot_matrix1, loc2, scale2, rot_matrix2):
+    def forward(self, loc1, scale1, rot_matrix1, loc2, scale2, rot_matrix2, cov1=None, cov2=None):
         """
         merge two Gaussians
         loc1, loc2: Bx3
         scale1, scale2: Bx3
         rot_matrix1, rot_matrix2: Bx3x3
+        cov1, cov2: Bx3x3, optional
         """
-        
-        cov1 = torch.bmm(rot_matrix1, torch.bmm(torch.diag_embed(scale1), rot_matrix1.transpose(1, 2))) # covariance matrix Bx3x3
-        cov2 = torch.bmm(rot_matrix2, torch.bmm(torch.diag_embed(scale2), rot_matrix2.transpose(1, 2)))
+        if cov1 is not None:
+            cov1 = torch.bmm(rot_matrix1, torch.bmm(torch.diag_embed(scale1), rot_matrix1.transpose(1, 2))) # covariance matrix Bx3x3
+            
+        if cov2 is not None:    
+            cov2 = torch.bmm(rot_matrix2, torch.bmm(torch.diag_embed(scale2), rot_matrix2.transpose(1, 2)))
 
         K = cov1.matmul((cov1 + cov2 + torch.eye(3).to(cov1.device)*1e-8).inverse())
         loc_new = loc1.unsqueeze(1) + (loc2.unsqueeze(1) - loc1.unsqueeze(1)).bmm(K.transpose(1, 2))
