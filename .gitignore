@@ -38,7 +38,6 @@ venv.bak/
 *.mkv
 *.jpg
 *.jpeg
-*.png
 *.gif
 *.bmp
 *.tiff

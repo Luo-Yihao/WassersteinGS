@@ -1,11 +1,5 @@
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
-
-import numpy as np
-
-from pytorch3d.transforms import quaternion_multiply, quaternion_to_matrix
-
 
 ### Utils
 def matrix_sqrt_H(A):
@@ -181,24 +175,30 @@ if __name__ == "__main__":
     device = torch.device("cuda")
     B = 6 # batch size
 
-    loc_0 = torch.randn(B, 3).to(device) # location Bx3
-    rot_0 = torch.randn(B, 4).to(device) # quaternion Bx4
-    rot_0 = F.normalize(rot_0, p=2, dim=1) # normalize quaternion
-    scale_0 = torch.randn(B, 3).to(device) # scale Bx3
-    scale_0 = torch.exp(scale_0) # make sure scale is positive
+    # loc_0 = torch.randn(B, 3).to(device) # location Bx3
+    # rot_0 = torch.randn(B, 4).to(device) # quaternion Bx4
+    # rot_0 = F.normalize(rot_0, p=2, dim=1) # normalize quaternion
+    # scale_0 = torch.randn(B, 3).to(device) # scale Bx3
+    # scale_0 = torch.exp(scale_0) # make sure scale is positive
 
-    loc_1 = torch.randn(B, 3).to(device) # location Bx3
-    rot_1 = torch.randn(B, 4).to(device) # quaternion Bx4
-    rot_1 = F.normalize(rot_1, p=2, dim=1) # normalize quaternion
-    scale_1 = torch.randn(B, 3).to(device) # scale Bx3
-    scale_1 = torch.exp(scale_1) # make sure scale is positive
+    # loc_1 = torch.randn(B, 3).to(device) # location Bx3
+    # rot_1 = torch.randn(B, 4).to(device) # quaternion Bx4
+    # rot_1 = F.normalize(rot_1, p=2, dim=1) # normalize quaternion
+    # scale_1 = torch.randn(B, 3).to(device) # scale Bx3
+    # scale_1 = torch.exp(scale_1) # make sure scale is positive
 
-    # convert quaternion to rotation matrix
-    rot_matrix_0 = quaternion_to_matrix(rot_0) # rotation matrix Bx3x3
-    cov_0 = torch.bmm(rot_matrix_0, torch.bmm(torch.diag_embed(scale_0), rot_matrix_0.transpose(1, 2))) # covariance matrix Bx3x3
-    
-    rot_matrix_1 = quaternion_to_matrix(rot_1) # rotation matrix Bx3x3
-    cov_1 = torch.bmm(rot_matrix_1, torch.bmm(torch.diag_embed(scale_1), rot_matrix_1.transpose(1, 2))) # covariance matrix Bx3x3
+
+    loc_0 = torch.randn(B, 3).to(device)
+    cov_0 = torch.randn(B, 3, 3).to(device)
+    cov_0 = cov_0.bmm(cov_0.transpose(1, 2))+1e-8*torch.eye(3).to(device).unsqueeze(0) # make it positive definite
+
+    loc_1 = torch.randn(B, 3).to(device)
+    cov_1 = torch.randn(B, 3, 3).to(device)
+    cov_1 = cov_1.bmm(cov_1.transpose(1, 2))+1e-8*torch.eye(3).to(device).unsqueeze(0) # make it positive definite
+
+    # Eigenvalue decomposition (Optional)
+    scale_0, rot_matrix_0 = torch.linalg.eigh(cov_0) # R@diag(S)@R^T = cov0
+    scale_1, rot_matrix_1 = torch.linalg.eigh(cov_1) # R@diag(S)@R^T = cov1
 
     wasserstein_dist = WassersteinDistGS()(loc_0, scale_0, rot_matrix_0, loc_1, scale_1, rot_matrix_1)
     assert (wasserstein_dist >= 0).all(), "Wasserstein distance should be non-negative"
