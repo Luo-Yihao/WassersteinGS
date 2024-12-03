@@ -1,4 +1,8 @@
 ## WGS: Wasserstein Gaussian Splatting for Dynamic Scene Rendering
+
+[![arXiv](https://img.shields.io/badge/arXiv-2412.00333-b31b1b.svg)](https://arxiv.org/abs/2412.00333)
+[![Project Page](https://img.shields.io/badge/Project-Page-blue)](https://cucdengjunli.github.io/wgs/)
+
 Official repository for the paper [Gaussians on their Way: Wasserstein-Constrained 4D Gaussian Splatting with State-Space Modeling](https://arxiv.org/abs/2412.00333) by Junli Deng and Yihao Luo. This repository implements a novel approach that combines state-space modeling with Wasserstein geometry to achieve more natural and fluid motion in 4D Gaussian Splatting for dynamic scene rendering. 
 
 Our method addresses the fundamental challenge of making 3D Gaussians move through time as naturally as they would in the real world while maintaining smooth and consistent motion.
