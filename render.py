@@ -29,8 +29,8 @@ import concurrent.futures
 import numpy as np
 from pytorch3d.transforms import quaternion_to_matrix
 
-from YiHao_utils import WassersteinExp, GaussianMerge, kalman_filter_update
-from YiHao_kalman_iteration import kalman_filter_training_step
+from Wasserstein_utils import WassersteinExp, GaussianMerge, kalman_filter_update
+from Gaussian_Updating import  wass_training_step
 
 def multithread_write(image_list, path):
     executor = concurrent.futures.ThreadPoolExecutor(max_workers=None)
@@ -74,11 +74,8 @@ def render_set(model_path, name, iteration, views, gaussians, pipeline, backgrou
 
 
     for idx, view in enumerate(tqdm(views, desc="Rendering progress")):
-        # print("idx:", idx)
         time1 = time()
         if pipeline.kalman_filter == True:
-            # import pdb ; pdb.set_trace()
-
             if idx < 2:
                 # For the first two frames, render normally and store the Gaussian parameters
                 print("----------original------------------------------")
@@ -99,8 +96,6 @@ def render_set(model_path, name, iteration, views, gaussians, pipeline, backgrou
                     "timestamp": torch.tensor(view.time/time_division).to(observed_means.device).repeat(observed_means.shape[0],1)
                 })
 
-                ## 必须知道真正上一帧是什么，kalman小于训练数据,vi
-
             else:
                 # For frames from idx >= 2, perform Kalman filtering
                 prev_param_1 = prev_gaussian_params[-2]
@@ -112,17 +107,8 @@ def render_set(model_path, name, iteration, views, gaussians, pipeline, backgrou
 
                 time_ratio = (delta_t3 - delta_t2) / (delta_t2 - delta_t1 + 1e-8)
 
-                # print("delta_t1:", delta_t1)
-                # print("delta_t2:", delta_t2)
-                # print("delta_t3:", delta_t3)
-                # print("time_ratio:", time_ratio)
-
                 velocity = time_ratio * (prev_param_2["means"] - prev_param_1["means"])
                 velocity_cov = time_ratio.unsqueeze(2) * (prev_param_2["covs"] - prev_param_1["covs"])
-
-                # print("velocity:", velocity)
-                # print("velocity_cov:", velocity_cov)
-
                 predicted_means, predicted_covs = wasserstein_exp(
                     loc=prev_param_2["means"],
                     cov1=prev_param_2["covs"],
@@ -130,10 +116,6 @@ def render_set(model_path, name, iteration, views, gaussians, pipeline, backgrou
                     velocity_cov=velocity_cov
                 )
 
-                # # Optionally, get the observed parameters for the current frame
-                # print("----------observed------------------------------")
-                # print("view.time:", view.time)
-                # print("view.time/time_division:", view.time/time_division)
                 render_pkg_observed = render(view, gaussians, pipeline, 
                                              background, cam_type=cam_type, 
                                              view_time=(view.time/time_division))
@@ -143,8 +125,6 @@ def render_set(model_path, name, iteration, views, gaussians, pipeline, backgrou
                 ## observed 和 predicted 的 diff
                 diff_means = observed_means_current - predicted_means
                 diff_covs = observed_covs_current - predicted_covs
-                # print("diff_means between observed and predicted:", diff_means[:2,:])
-                # print("diff_covs between observed and predicted:", diff_covs[:2,:,:])
 
                 # Merge the predicted parameters with the observed parameters
                 merged_means, merged_covs = gaussian_merge(
@@ -153,9 +133,6 @@ def render_set(model_path, name, iteration, views, gaussians, pipeline, backgrou
                 )
 
                 # Render using the [merged] parameters
-                # print("----------merged------------------------------") 
-                # print("view.time:", view.time)
-                # print("view.time/time_division:", view.time/time_division)
                 render_pkg = render(
                     view, gaussians, pipeline, background, cam_type=cam_type,
                     predicted_loc=merged_means, predicted_cov=merged_covs, 
@@ -209,7 +186,7 @@ def render_sets(dataset : ModelParams, hyperparam, iteration : int, pipeline : P
     with torch.no_grad():
         gaussians = GaussianModel(dataset.sh_degree, hyperparam)
         scene = Scene(dataset, gaussians, load_iteration=iteration, shuffle=False)
-        # import pdb ; pdb.set_trace()
+        
         cam_type=scene.dataset_type
         bg_color = [1,1,1] if dataset.white_background else [0, 0, 0]
         background = torch.tensor(bg_color, dtype=torch.float32, device="cuda")

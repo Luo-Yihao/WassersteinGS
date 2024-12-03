@@ -16,7 +16,7 @@ from scene.gaussian_model import GaussianModel
 from utils.sh_utils import eval_sh
 from time import time as get_time
 from debug_utils import debug_print
-from YiHao_utils import GaussianMerge
+from Wasserstein_utils import GaussianMerge
 from utils.general_utils import strip_symmetric
 
 def render(viewpoint_camera, 
@@ -51,10 +51,8 @@ def render(viewpoint_camera,
     
     try:
         screenspace_points.retain_grad()
-        # print("viewspace_points(screenspace_points) retain_grad success!!")
     except:
-        # print("viewspace_points(screenspace_points) retain_grad failed~~")
-        # print("viewpoint_camera.time",viewpoint_camera.time)
+        import pdb ; pdb.set_trace()
         pass
 
     # Set up rasterization configuration
@@ -117,7 +115,7 @@ def render(viewpoint_camera,
     deformation_point = pc._deformation_table
 
 
-    # import pdb ; pdb.set_trace()
+    
 
     if "coarse" in stage \
         and predicted_loc is  None \
@@ -144,8 +142,7 @@ def render(viewpoint_camera,
 
         means3D_final, scales_final, rotations_final, opacity_final, shs_final = pc._deformation(means3D, scales, 
                                                                  rotations, opacity, shs,
-                                                                 time) 
-        # print("time:", time.shape, time)               
+                                                                 time)         
         scales_final = pc.scaling_activation(scales_final)
         rotations_final = pc.rotation_activation(rotations_final)
         opacity = pc.opacity_activation(opacity_final)
@@ -155,7 +152,6 @@ def render(viewpoint_camera,
         predicted_cov is not None and \
         opacity_final is None and \
         shs_final is None:
-        # yihao 3 batch kalman 推理阶段
         
         if view_time is not None:
             time = torch.tensor(view_time).to(means3D.device).repeat(means3D.shape[0],1)
@@ -193,9 +189,6 @@ def render(viewpoint_camera,
         if stage == "fine" and \
            predicted_loc is not None and \
            predicted_cov is not None:
-
-            # print("kalman_updated_loc:",kalman_updated_loc)
-            # print("kalman_updated_cov:",kalman_updated_cov)
             
             means3D_final, cov3D_precomp_matrix = predicted_loc, predicted_cov
 
@@ -208,7 +201,6 @@ def render(viewpoint_camera,
             # 在这种情况下,直接使用当前帧的高斯参数,不进行融合
             pass
         # 将协方差矩阵转换为（batch_size, 6）的形状
-        # print("cov3D_precomp:", cov3D_precomp.shape)
         try:
             cov3D_precomp = strip_symmetric(cov3D_precomp_matrix)
         except:
@@ -217,11 +209,7 @@ def render(viewpoint_camera,
 
     else:
         conv3D_precomp = None
-
-    # time2 = get_time()
-    # print("asset value:",time2-time1)
     
-    # print(opacity.max())
     # If precomputed colors are provided, use them. Otherwise, if it is desired to precompute colors
     # from SHs in Python, do it. If not, then SH -> RGB conversion will be done by rasterizer.
     # shs = None
@@ -263,15 +251,10 @@ def render(viewpoint_camera,
         print("means3D_final:", means3D_final.shape)
         print("means2D:", means2D.shape)
         print("shs_final:", shs_final.shape)
-        # print("colors_precomp:", colors_precomp.shape)
         print("opacity:", opacity.shape)
-        # print("scales_final:", scales_final.shape)
-        # print("rotations_final:", rotations_final.shape)
         print("cov3D_precomp:", cov3D_precomp.shape)
         import pdb ; pdb.set_trace()
-    # time4 = get_time()
-    # print("rasterization:",time4-time3)
-    # breakpoint()
+
     # Those Gaussians that were frustum culled or had a radius of 0 were not visible.
     # They will be excluded from value updates used in the splitting criteria.
     return {"render": rendered_image,

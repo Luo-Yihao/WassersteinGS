@@ -49,7 +49,6 @@ def rotate_point_cloud(point_cloud, displacement, rotation_angles, scales_bias):
         [0, torch.sin(phi),  torch.cos(phi)]
     ]).to(point_cloud)
     rotation_matrix = torch.matmul(rotation_matrix_z, rotation_matrix_x)
-    # print(rotation_matrix)
     point_cloud = point_cloud*scales_bias
     rotated_point_cloud = torch.matmul(point_cloud, rotation_matrix.t())
     displaced_point_cloud = rotated_point_cloud + displacement

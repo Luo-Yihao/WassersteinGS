@@ -32,7 +32,8 @@ class GaussianModel:
             actual_covariance = L @ L.transpose(1, 2)
             symm = strip_symmetric(actual_covariance)
             return symm, actual_covariance
-            # actual_covariance 才是 yihao 同款的协方差矩阵，送入 cuda 之前再加上 strip_symmetric
+            # actual_covariance is the covariance matrix that yihao uses, 
+            # we need to add strip_symmetric before sending it to cuda
             
         
         self.scaling_activation = torch.exp
@@ -137,10 +138,8 @@ class GaussianModel:
     '''
     def get_covariance(self, scaling_modifier = 1, scale=None, rotation=None):
         if scale is None:
-            # print("scale is None")
             scale = self.get_scaling
         if rotation is None:
-            # print("rotation is None")
             rotation = self.get_rotation
         symm, actual_covariance = self.covariance_activation(scale, scaling_modifier, rotation)
         return symm, actual_covariance
@@ -257,7 +256,6 @@ class GaussianModel:
         if os.path.exists(os.path.join(path, "deformation_accum.pth")):
             self._deformation_accum = torch.load(os.path.join(path, "deformation_accum.pth"),map_location="cuda")
         self.max_radii2D = torch.zeros((self.get_xyz.shape[0]), device="cuda")
-        # print(self._deformation.deformation_net.grid.)
     def save_deformation(self, path):
         torch.save(self._deformation.state_dict(),os.path.join(path, "deformation.pth"))
         torch.save(self._deformation_table,os.path.join(path, "deformation_table.pth"))

@@ -113,3 +113,16 @@ results/
 checkpoints/
 runs/
 wandb/
+
+# 训练
+train.py
+DJL_test.py
+.ipynb
+assets/
+DJL_test.py
+
+
+# image
+*.png
+*.jpg
+

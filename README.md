@@ -1,5 +1,5 @@
 ## WGS: Wasserstein Gaussian Splatting for Dynamic Scene Rendering
-Official repository for the paper [Gaussians on their Way: Wasserstein-Constrained 4D Gaussian Splatting with State-Space Modeling](docs/arxiv_WGS.pdf) by Junli Deng$^{\dagger}$ and Yihao Luo$^{\dagger*}$. This repository implements a novel approach that combines state-space modeling with Wasserstein geometry to achieve more natural and fluid motion in 4D Gaussian Splatting for dynamic scene rendering. 
+Official repository for the paper [Gaussians on their Way: Wasserstein-Constrained 4D Gaussian Splatting with State-Space Modeling](https://arxiv.org/abs/2412.00333) by Junli Deng and Yihao Luo. This repository implements a novel approach that combines state-space modeling with Wasserstein geometry to achieve more natural and fluid motion in 4D Gaussian Splatting for dynamic scene rendering. 
 
 Our method addresses the fundamental challenge of making 3D Gaussians move through time as naturally as they would in the real world while maintaining smooth and consistent motion.
 
@@ -13,7 +13,7 @@ Dynamic scene rendering has seen significant advances with 4D Gaussian Splatting
 
 - **Wasserstein Distance Regularization**: We employ Wasserstein distance as a key metric between Gaussian distributions to ensure smooth and consistent parameter updates, effectively reducing motion artifacts while preserving the underlying Gaussian structure.
 
-- **Wasserstein Geometry Modeling**: Our framework leverages Wasserstein geometry to capture both translational motion and shape deformations in a unified way, resulting in more physically plausible Gaussian dynamics and improved motion trajectories.
+- **Wasserstein Geometry Modeling**: Our framework leverages Wasserstein geometry to capture both translational motion and shape deformations in a unified way. By utilizing logarithmic mapping to compute velocities in the tangent space and exponential mapping to predict future Gaussian states, we achieve more physically plausible Gaussian dynamics and improved motion trajectories.
 
 Our method guides Gaussians along their natural way in the Wasserstein space, achieving smoother, more realistic motion and stronger temporal coherence. Experimental results demonstrate significant improvements in both rendering quality and efficiency compared to current state-of-the-art techniques.
 
@@ -25,24 +25,42 @@ Our method guides Gaussians along their natural way in the Wasserstein space, ac
   - Wasserstein logarithmic mapping
   - Wasserstein exponential mapping
   - Gaussian distribution merging
-- [x] Release inference code
-- [x] Upload pre-trained models
+- [x] Provide plug-and-play code samples
 - [x] Add video demonstrations
+- [ ] Release inference code
+- [ ] Upload pre-trained models
 - [ ] Create documentation for model usage
-- [ ] Add evaluation scripts
-- [ ] Provide example training configurations
-- [ ] Create installation guide
-- [ ] Add benchmarking results
-- [ ] Provide data preprocessing scripts
 
-#### 📝 Future Plans
-- [ ] Wasserstein flow optimization
-- [ ] Support for more dynamic scene types
-- [ ] Real-time rendering optimization
-- [ ] Multi-GPU training support
-- [ ] Interactive visualization tools
-- [ ] Integration with popular rendering frameworks
 
+
+### Quick Start
+We assume that flickering artifacts in videos arise from the variations in the shape or position of Gaussians between adjacent frames. By applying Wasserstein distance constraints between the Gaussian spheres of consecutive frames, we can effectively mitigate the occurrence of these artifacts. 
+
+Here's a minimal example showing how to add Wasserstein distance constraints between consecutive frames:
+
+```python
+from WassersteinGeom_Yihao import WassersteinDistGS
+
+# Initialize Wasserstein distance calculator
+wasserstein_distance = WassersteinDistGS()
+
+# # In your training loop, make sure the iterations are processed in chronological order
+for iteration in range(iterations):
+    # Process current and next frame's Gaussians
+    means3D_curr, scales_curr, rot_matrix_curr = process_frame(frame_t)
+    means3D_next, scales_next, rot_matrix_next = process_frame(frame_t + 1)
+    
+    # Calculate Wasserstein distance loss between consecutive frames
+    loss_wasserstein = wasserstein_distance(
+        means3D_curr, scales_curr**2, rot_matrix_curr,
+        means3D_next, scales_next**2, rot_matrix_next
+    ).mean()
+    
+    # Add to total loss
+    loss = render_loss + 0.1 * loss_wasserstein
+```
+
+This constraint helps ensure smooth transitions between frames by penalizing large changes in Gaussian distributions.
 
 
 
@@ -122,20 +140,33 @@ tensor([3.6496, 7.4741, 4.0424, 4.4655, 7.1282, 4.6840], device='cuda:0')
 ```
 It is easy to see that the Wasserstein distance between GS0 and GS2 is approximately twice the distance between GS0 and GS1. In other words, GS2 is a natural extension of GS1 from GS0.
 
-#### 4D Gaussian Splatting for Dynamic Scene Rendering
 
+### Contributions
 
+Some source code of ours is borrowed from the following repositories:
+- [3DGS](https://github.com/graphdeco-inria/gaussian-splatting)
+- [K-planes](https://github.com/Giodiro/kplanes_nerfstudio)
+- [HexPlane](https://github.com/Caoang327/HexPlane)
+- [TiNeuVox](https://github.com/hustvl/TiNeuVox)
+- [Depth-Rasterization](https://github.com/ingra14m/depth-diff-gaussian-rasterization)
+- [4DGS](https://github.com/hustvl/4DGaussians)
 
+We sincerely appreciate the excellent works of these authors, which have greatly influenced our project.
 
 ### Citation
 If you find this repository helpful in your research or project, please consider citing our work:
 
 ```
-@article{WGS2021,
-  title={Gaussians on their Way: Wasserstein-Constrained 4D Gaussian Splatting with
-        State-Space Modeling},
-  author={Deng, Junli and Luo, Yihao},
+@misc{deng2024gaussianswaywassersteinconstrained4d,
+      title={Gaussians on their Way: Wasserstein-Constrained 4D Gaussian Splatting with State-Space Modeling}, 
+      author={Junli Deng and Yihao Luo},
+      year={2024},
+      eprint={2412.00333},
+      archivePrefix={arXiv},
+      primaryClass={cs.CV},
+      url={https://arxiv.org/abs/2412.00333}, 
 }
+
 @article{luo2021geometric,
   title={Geometric Characteristics of the Wasserstein Metric on SPD(n) 
   and Its Applications on Data Processing},

@@ -32,14 +32,14 @@ from utils.scene_utils import render_training_image
 from time import time
 import copy
 
-from YiHao_utils import WassersteinGaussian, \
+from Wasserstein_utils import WassersteinGaussian, \
                         WassersteinExp, \
                         GaussianMerge, \
                         kalman_filter_update
 
-from YiHao_kalman_iteration import kalman_filter_training_step
+from Gaussian_Updating import  wass_training_step
 
-from Junli_utils import create_consecutive_groups, get_random_group, create_random_ordered_groups
+from continuous_iterations import create_consecutive_groups, get_random_group, create_random_ordered_groups
 
 
 
@@ -185,11 +185,7 @@ def scene_reconstruction(dataset, opt, hyper, pipe, testing_iterations, saving_i
             idx = 0
             viewpoint_cams = []
 
-            # *********************************************
-            # 在训练循环中使用
             while idx < batch_size :    
-                # import pdb; pdb.set_trace()
-                # print("idx = ", idx)
                 if not groups:
                     groups = create_random_ordered_groups(viewpoint_stack, group_size)  # 每次重新创建组
 
@@ -199,12 +195,9 @@ def scene_reconstruction(dataset, opt, hyper, pipe, testing_iterations, saving_i
                     viewpoint_cam = group.pop(0)
                 else:
                     viewpoint_cam = group.pop(0)
-                # print("len(group) = ", len(group))
                 
                 viewpoint_cams.append(viewpoint_cam)
-                # print("len(viewpoint_cams) = ", len(viewpoint_cams))
                 idx += 1
-            # *********************************************
             if len(viewpoint_cams) == 0:
                 continue
 
@@ -226,14 +219,14 @@ def scene_reconstruction(dataset, opt, hyper, pipe, testing_iterations, saving_i
         lambda_loss_render_obv_two = torch.tensor(1.0)
         lambda_loss_render_pred_two = torch.tensor(0.1) # 高一点，考虑另一个网络代表predict
         lambda_loss_render_merge_two = torch.tensor(0.1) # 暂时不用，不是真的，只是为了不报错
-        lambda_loss_cross = torch.tensor(0.1) # 暂时还拿不出来
+        lambda_loss_cross = torch.tensor(0.01) # 暂时还拿不出来
 
 
         for i, viewpoint_cam in enumerate(viewpoint_cams):
             loss_kal = 0
             # 此时 opt.batchsize 为 3，是为了装三个 view_cam 用于 kalman 滤波   
-            # 此时 kalman_filter_training_step 中，viewpoint_cams 为 3 个 view_cam
-            # 如果重复执行三次循环，则是重复三次，不要重复执行三次循环，只执行一次 kalman_filter_training_step
+            # 此时  wass_training_step 中，viewpoint_cams 为 3 个 view_cam
+            # 如果重复执行三次循环，则是重复三次，不要重复执行三次循环，只执行一次  wass_training_step
             if pipe.kalman_filter == True and stage == "fine":
                 '''
                 卡尔曼滤波求得下一帧的位置，协方差矩阵
@@ -243,7 +236,7 @@ def scene_reconstruction(dataset, opt, hyper, pipe, testing_iterations, saving_i
                     visibility_filter, \
                     radii, \
                     image_pkg,\
-                    loss_pkg = kalman_filter_training_step(gaussians, 
+                    loss_pkg =  wass_training_step(gaussians, 
                                                             viewpoint_cams, # 注意！不是 viewpoint_cam
                                                             scene, 
                                                             pipe, 
@@ -288,15 +281,6 @@ def scene_reconstruction(dataset, opt, hyper, pipe, testing_iterations, saving_i
                 else:
                     continue
                     
-
-                # 保存当前帧的参数
-                # xyz = render_pkg["means3D_final"].detach().clone()
-                # rot = render_pkg["rotations_final"].detach().clone()
-                # scale = render_pkg["scales_final"].detach().clone()
-                # norm_rot = F.normalize(rot.detach().clone(), p=2, dim=1)
-                # positive_scale = torch.exp(scale.detach().clone())
-                # positive_scale = torch.square(positive_scale.detach().clone())
-        
                 image, \
                 viewspace_point_tensor, \
                 visibility_filter, \
@@ -304,9 +288,7 @@ def scene_reconstruction(dataset, opt, hyper, pipe, testing_iterations, saving_i
                         render_pkg["viewspace_points"], \
                         render_pkg["visibility_filter"], \
                         render_pkg["radii"]
-                # print("viewspace_point_tensor:", viewspace_point_tensor)
-                # print("viewspace_point_tensor.grad:", viewspace_point_tensor.grad)
-            ########################################################################################### 
+
             images.append(image.unsqueeze(0))
             if scene.dataset_type!="PanopticSports":
                 gt_image = viewpoint_cam.original_image.cuda()
@@ -328,27 +310,14 @@ def scene_reconstruction(dataset, opt, hyper, pipe, testing_iterations, saving_i
         
 
         if pipe.kalman_filter == True and stage == "fine":  
-            # loss = loss_kal  # 如不使用kalman滤波，loss_kal 为0
-            # Ll1_of_obv_zero = l1_loss(image_pkg["render_image_obv_zero"].unsqueeze(0), image_pkg["gt_image"][0].unsqueeze(0)) * lambda_loss_render_obv_zero
-            # Ll1_of_obv_one = l1_loss(image_pkg["render_image_obv_one"].unsqueeze(0), image_pkg["gt_image"][1].unsqueeze(0)) * lambda_loss_render_obv_one
-            # Ll1_of_obv_two = l1_loss(image_pkg["render_image_obv_two"].unsqueeze(0), image_pkg["gt_image"][2].unsqueeze(0)) * lambda_loss_render_obv_two
-            # Ll1_of_pred_two = l1_loss(image_pkg["render_image_pred_two"].unsqueeze(0), image_pkg["gt_image"][2].unsqueeze(0)) * lambda_loss_render_pred_two
-            # Ll1_of_merge_two = l1_loss(image_pkg["render_image_merge_two"].unsqueeze(0), image_pkg["gt_image"][2].unsqueeze(0)) * lambda_loss_render_merge_two  
-            # loss_cross = torch.tensor(0.0)
-            # if iteration > 0 and gaussian_params["means3D_final"][2].shape[0] == gaussian_params["predict_mean3D_2"].shape[0]:
-            #     import pdb; pdb.set_trace()
-            #     print("iteration:", iteration)
-            #     loss_cross = wasserstein_loss(gaussian_params["means3D_final"][2], gaussian_params["scales_final"][2]**2, \
-            #                                     gaussian_params["rot_matrix_final"][2], gaussian_params["predict_mean3D_2"], \
-            #                                     cov2=gaussian_params["predict_cov3D_2"]).mean() * lambda_loss_cross
-            # print("iteration:", iteration)
+
             Ll1_of_obv_zero = loss_pkg["loss_render_obv_zero"] * lambda_loss_render_obv_zero
             Ll1_of_obv_one = loss_pkg["loss_render_obv_one"] * lambda_loss_render_obv_one
             Ll1_of_obv_two = loss_pkg["loss_render_obv_two"] * lambda_loss_render_obv_two
             Ll1_of_pred_two = loss_pkg["loss_render_pred_two"] * lambda_loss_render_pred_two
             Ll1_of_merge_two = loss_pkg["loss_render_merge_two"] * lambda_loss_render_merge_two
             loss_cross =  loss_pkg["loss_cross"] * lambda_loss_cross if loss_pkg["loss_cross"] > 2e-4 else 0
-            # print("wasserstein_loss:", loss_cross)
+
 
 
             Ll1 = Ll1_of_obv_zero + Ll1_of_obv_one + Ll1_of_obv_two + Ll1_of_pred_two + Ll1_of_merge_two + loss_cross
@@ -410,11 +379,10 @@ def scene_reconstruction(dataset, opt, hyper, pipe, testing_iterations, saving_i
             # 重启程序
             os.execv(sys.executable, [sys.executable] + sys.argv)
 
-        # import pdb; pdb.set_trace()
+        
         viewspace_point_tensor_grad = torch.zeros_like(viewspace_point_tensor)
         for idx in range(0, len(viewspace_point_tensor_list)):
             try:
-                # print("viewspace_point_tensor_list[idx].grad:", viewspace_point_tensor_list[idx].grad)
                 viewspace_point_tensor_grad = viewspace_point_tensor_grad + viewspace_point_tensor_list[idx].grad
             except Exception as e:
                 print(e)
