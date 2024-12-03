@@ -7,15 +7,15 @@ Our method addresses the fundamental challenge of making 3D Gaussians move throu
 
 ![WGS Overview](figures/Demo_WGS.png)
 
-Dynamic scene rendering has seen significant advances with 4D Gaussian Splatting, but accurately modeling scene dynamics remains challenging due to limitations in estimating precise Gaussian transformations. Our approach draws inspiration from control theory and introduces three key innovations:
+Dynamic scene rendering with 4D Gaussian Splatting faces challenges in modeling precise scene dynamics. Our approach combines control theory with three key innovations:
 
-- **State Consistency Filter**: By modeling each Gaussian's deformation as a state in a dynamic system, we merge prior predictions with current observations to estimate transformations more accurately, enabling Gaussians to maintain temporal consistency.
+- **State Consistency Filter**: Models Gaussian deformation as a dynamic system state, merging predictions with observations for better temporal consistency.
 
-- **Wasserstein Distance Regularization**: We employ Wasserstein distance as a key metric between Gaussian distributions to ensure smooth and consistent parameter updates, effectively reducing motion artifacts while preserving the underlying Gaussian structure.
+- **Wasserstein Distance Regularization**: Uses Wasserstein distance to ensure smooth parameter updates and reduce motion artifacts.
 
-- **Wasserstein Geometry Modeling**: Our framework leverages Wasserstein geometry to capture both translational motion and shape deformations in a unified way. By utilizing logarithmic mapping to compute velocities in the tangent space and exponential mapping to predict future Gaussian states, we achieve more physically plausible Gaussian dynamics and improved motion trajectories.
+- **Wasserstein Geometry Modeling**: Captures motion and deformation using Wasserstein geometry's logarithmic and exponential mappings for more natural dynamics.
 
-Our method guides Gaussians along their natural way in the Wasserstein space, achieving smoother, more realistic motion and stronger temporal coherence. Experimental results demonstrate significant improvements in both rendering quality and efficiency compared to current state-of-the-art techniques.
+Our method achieves smoother, more realistic motion by guiding Gaussians through Wasserstein space.
 
 ### TODO List
 
@@ -59,8 +59,7 @@ for iteration in range(iterations):
     # Add to total loss
     loss = render_loss + 0.1 * loss_wasserstein
 ```
-
-This constraint helps ensure smooth transitions between frames by penalizing large changes in Gaussian distributions.
+This constraint helps ensure smooth transitions between frames by penalizing large changes in Gaussian distributions. The plug-and-play regularization method is applicable to other Gaussian-based video tasks, and we recommend using it for your task.
 
 
 
