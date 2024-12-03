@@ -38,36 +38,19 @@ Our method achieves smoother, more realistic motion by guiding Gaussians through
 
 
 ### Quick Start
-We assume that flickering artifacts in videos arise from the variations in the shape or position of Gaussians between adjacent frames. By applying Wasserstein distance constraints between the Gaussian spheres of consecutive frames, we can effectively mitigate the occurrence of these artifacts. 
-
-Here's a minimal example showing how to add Wasserstein distance constraints between consecutive frames:
-
-```python
-from WassersteinGeom_Yihao import WassersteinDistGS
-
-# Initialize Wasserstein distance calculator
-wasserstein_distance = WassersteinDistGS()
-
-# # In your training loop, make sure the iterations are processed in chronological order
-for iteration in range(iterations):
-    # Process current and next frame's Gaussians
-    means3D_curr, scales_curr, rot_matrix_curr = process_frame(frame_t)
-    means3D_next, scales_next, rot_matrix_next = process_frame(frame_t + 1)
-    
-    # Calculate Wasserstein distance loss between consecutive frames
-    loss_wasserstein = wasserstein_distance(
-        means3D_curr, scales_curr**2, rot_matrix_curr,
-        means3D_next, scales_next**2, rot_matrix_next
-    ).mean()
-    
-    # Add to total loss
-    loss = render_loss + 0.1 * loss_wasserstein
+ 
+#### Installation
+1. Clone the repository and install the required packages:
+```bash
+git clone git@github.com:Luo-Yihao/WassersteinGS.git
+cd WassersteinGS
+pip install -r requirements.txt
 ```
-This constraint helps ensure smooth transitions between frames by penalizing large changes in Gaussian distributions. The plug-and-play regularization method is applicable to other Gaussian-based video tasks, and we recommend using it for your task.
+#### Inference
+· Coming soon
 
 
-
-### How to Use
+### Technical Tutorial
 
 #### Wasserstein Geometry on Gaussians
 One of the key innovations in our approach is the integration of Wasserstein geometry into the Gaussian dynamics modeling. We provide a set of differentiable PyTorch classes that implement explicit computing of Wasserstein distance, logarithmic and exponential mappings, and Gaussian distribution merging. These classes are essential for modeling the dynamics of Gaussian distributions in a consistent and physically plausible manner. 
@@ -82,7 +65,7 @@ python WassersteinGeom_Yihao.py
 
 Sample code snippets for using these classes are provided below:
 
-1. Prepare the data for two batches of Gaussian distributions:
+Prepare the data for two batches of Gaussian distributions:
 
 ```python
 import torch
@@ -103,7 +86,7 @@ scale0, rot0 = torch.linalg.eigh(cov0) # R@diag(S)@R^T = cov
 scale1, rot1 = torch.linalg.eigh(cov1)
 ```
 
-2. Compute the Wasserstein distance between two Gaussian distributions:
+1. Compute the Wasserstein distance between two Gaussian distributions:
 
 ```python
 # Wasserstein distance
@@ -114,7 +97,29 @@ dist = WassersteinDistGS()(loc0, scale0, rot0, loc1, scale1, rot1)
 #                rot_matrix1=None, cov0=cov0, cov1=cov1) 
 print("Wasserstein distance from GS0 to GS1:", dist)
 ```
-3. Compute the logarithmic mapping between two Gaussians (velocity and velocity covariance):
+
+We assume that flickering artifacts in videos arise from the variations in the shape or position of Gaussians between adjacent frames. By applying Wasserstein distance constraints between the Gaussian spheres of consecutive frames, we can effectively mitigate the occurrence of these artifacts. Here's a minimal example showing how to add Wasserstein distance constraints between consecutive frames:
+
+```python
+# Initialize Wasserstein distance calculator
+wasserstein_distance = WassersteinDistGS()
+# # In your training loop, make sure the iterations are processed in chronological order
+for iteration in range(iterations):
+    # Process current and next frame's Gaussians
+    means3D_curr, scales_curr, rot_matrix_curr = process_frame(frame_t)
+    means3D_next, scales_next, rot_matrix_next = process_frame(frame_t + 1)
+    
+    # Calculate Wasserstein distance loss between consecutive frames
+    loss_wasserstein = wasserstein_distance(
+        means3D_curr, scales_curr**2, rot_matrix_curr,
+        means3D_next, scales_next**2, rot_matrix_next
+    ).mean()
+    # Add to total loss
+    loss = render_loss + 0.1 * loss_wasserstein
+```
+This constraint helps ensure smooth transitions between frames by penalizing large changes in Gaussian distributions. The plug-and-play regularization method is applicable to other Gaussian-based video tasks, and we recommend using it for your task.
+
+2. Compute the logarithmic mapping between two Gaussians (velocity and velocity covariance):
 
 ```python
 # Wasserstein logarithmic mapping
@@ -124,7 +129,7 @@ cov_velocity = -cov_velocity
 ```
 *Remark. Note that the velocity from 'GS0' to 'GS1' is not generally the inverse of the velocity from 'GS1' to 'GS0' in Wasserstein space. The velocity is computed in the tangent space of the Wasserstein manifold.*
 
-4. Compute the exponential mapping to predict the new Gaussian distribution based on the previous frame's distribution and the current frame's velocity and velocity covariance:
+3. Compute the exponential mapping to predict the new Gaussian distribution based on the previous frame's distribution and the current frame's velocity and velocity covariance:
 
 ```python
 # Wasserstein exponential mapping
