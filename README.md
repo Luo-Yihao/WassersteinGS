@@ -117,7 +117,7 @@ for iteration in range(iterations):
     # Add to total loss
     loss = render_loss + 0.1 * loss_wasserstein
 ```
-This constraint helps ensure smooth transitions between frames by penalizing large changes in Gaussian distributions. The plug-and-play regularization method is applicable to other Gaussian-based video tasks, and we recommend using it for your task.
+This constraint helps ensure smooth transitions between frames by penalizing large changes in Gaussian distributions. **The plug-and-play regularization method is applicable to other Gaussian-based video tasks, and we recommend using it for your task.**
 
 2. Compute the logarithmic mapping between two Gaussians (velocity and velocity covariance):
 
