@@ -231,7 +231,7 @@ def matrix_log(A):
 
 class WassersteinLog_stable(nn.Module):
     def __init__(self):
-        super(WassersteinLog, self).__init__()
+        super(WassersteinLog_stable, self).__init__()
 
     def forward(self, miu_1, miu_2, cov_1, cov_2):
         """

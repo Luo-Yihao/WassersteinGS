@@ -123,7 +123,10 @@ DJL_test.py
 submodules/depth-diff-gaussian-rasterization
 submodules/simple-knn
 SIBR_viewers/
-
+render.py
+render_batch.py
+output/
+check_cuda.py
 
 # image
 *.png

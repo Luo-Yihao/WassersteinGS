@@ -13,6 +13,7 @@ def wass_training_step(gaussians,
                         pipe, 
                         background, 
                         stage, 
+                        iteration,
                         wasserstein_exp: WassersteinExp,
                         wasserstein_distance: WassersteinGaussian,
                         gaussian_merge: GaussianMerge):
@@ -79,10 +80,12 @@ def wass_training_step(gaussians,
         rot_matrix_final = rearrange(rot_matrix_final, '(t b) h w -> t b h w', t=3)
 
         ## log_velocity
-        try:
-            velocity, velocity_cov = WassersteinLog()(means3D_final[1], means3D_final[0], cov3D_precomp[1], cov3D_precomp[0])
-        except:
-            velocity, velocity_cov = WassersteinLog_stable()(means3D_final[1], means3D_final[0], cov3D_precomp[1], cov3D_precomp[0])
+        # try:
+        #     velocity, velocity_cov = WassersteinLog()(means3D_final[1], means3D_final[0], cov3D_precomp[1], cov3D_precomp[0])
+        # except:
+        #     velocity, velocity_cov = WassersteinLog_stable()(means3D_final[1], means3D_final[0], cov3D_precomp[1], cov3D_precomp[0])
+        velocity, velocity_cov = WassersteinLog_stable()(means3D_final[1], means3D_final[0], cov3D_precomp[1], cov3D_precomp[0])
+        
         velocity = -velocity    
         velocity_cov = -velocity_cov
 

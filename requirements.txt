@@ -10,4 +10,5 @@ pytorch_msssim
 open3d
 moviepy
 wandb
+einops
 imageio[ffmpeg]

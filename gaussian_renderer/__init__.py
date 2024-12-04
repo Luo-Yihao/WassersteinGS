@@ -52,7 +52,8 @@ def render(viewpoint_camera,
     try:
         screenspace_points.retain_grad()
     except:
-        import pdb ; pdb.set_trace()
+        # print("screenspace_points is None")
+        # import pdb ; pdb.set_trace()
         pass
 
     # Set up rasterization configuration
