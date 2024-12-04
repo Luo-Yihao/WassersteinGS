@@ -69,7 +69,7 @@ Prepare the data for two batches of Gaussian distributions:
 
 ```python
 import torch
-from WassersteinGeom_Yihao import WassersteinDistGS, WassersteinLog, WassersteinExp
+from WassersteinGeom_Yihao import WassersteinDistGS, WassersteinLogGS, WassersteinExpGS
 
 device = torch.device("cuda")
 B = 6 # batch size
