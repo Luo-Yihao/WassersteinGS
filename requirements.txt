@@ -8,4 +8,6 @@ lpips
 plyfile
 pytorch_msssim
 open3d
+moviepy
+wandb
 imageio[ffmpeg]

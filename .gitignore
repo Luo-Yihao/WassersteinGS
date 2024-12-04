@@ -120,6 +120,9 @@ DJL_test.py
 .ipynb
 assets/
 DJL_test.py
+submodules/depth-diff-gaussian-rasterization
+submodules/simple-knn
+SIBR_viewers/
 
 
 # image

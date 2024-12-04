@@ -44,8 +44,31 @@ Our method achieves smoother, more realistic motion by guiding Gaussians through
 ```bash
 git clone git@github.com:Luo-Yihao/WassersteinGS.git
 cd WassersteinGS
+conda create -n WGS python=3.7 
+conda activate WGS
 pip install -r requirements.txt
+
+git clone https://github.com/ingra14m/depth-diff-gaussian-rasterization submodules/depth-diff-gaussian-rasterization
+git clone https://github.com/g-truc/glm.git submodules/depth-diff-gaussian-rasterization/third_party
+git clone https://gitlab.inria.fr/bkerbl/simple-knn.git submodules/simple-knn
+pip install -e submodules/depth-diff-gaussian-rasterization
+pip install -e submodules/simple-knn
+
 ```
+2. install [Pytorch3D](https://github.com/facebookresearch/pytorch3d/blob/main/INSTALL.md)
+
+#### Data Preparation
+For synthetic scenes: The dataset provided in [D-NeRF](https://github.com/albertpumarola/D-NeRF) is used. You can download the dataset from [dropbox](https://www.dropbox.com/s/0bf6fl0ye2vz3vr/data.zip?dl=0).
+
+```
+├── data
+│   | dnerf 
+│     ├── mutant
+│     ├── standup 
+│     ├── ...
+```
+
+
 #### Inference
 · Coming soon
 
@@ -187,7 +210,7 @@ If you find this repository helpful in your research or project, please consider
   publisher={MDPI}
 }
 ```
-We appreciate any feedback, suggestions, or potential collaborations. Please feel free to reach out to us at [y.luo23@imperial.ac.uk](mailto:y.luo23@imperial.ac.uk).
+We appreciate any feedback, suggestions, or potential collaborations. Please feel free to reach out to us at [y.luo23@imperial.ac.uk](mailto:y.luo23@imperial.ac.uk) or [dengjunliok@cuc.edu.cn](mailto:dengjunliok@cuc.edu.cn).
 
 ### License
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
