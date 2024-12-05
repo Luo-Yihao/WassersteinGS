@@ -79,35 +79,44 @@ def wass_training_step(gaussians,
         timestamp_batch = rearrange(timestamp_batch, '(t b) c -> t b c', t=3)
         rot_matrix_final = rearrange(rot_matrix_final, '(t b) h w -> t b h w', t=3)
 
+
+        ### log && exp wasserstein geodesic ，compute velocity and covariance velocity ------------------
         ## log_velocity
         # try:
         #     velocity, velocity_cov = WassersteinLog()(means3D_final[1], means3D_final[0], cov3D_precomp[1], cov3D_precomp[0])
         # except:
         #     velocity, velocity_cov = WassersteinLog_stable()(means3D_final[1], means3D_final[0], cov3D_precomp[1], cov3D_precomp[0])
-        velocity, velocity_cov = WassersteinLog_stable()(means3D_final[1], means3D_final[0], cov3D_precomp[1], cov3D_precomp[0])
+
+
+        # velocity, velocity_cov = WassersteinLog_stable()(means3D_final[1], means3D_final[0], cov3D_precomp[1], cov3D_precomp[0])
+        velocity, velocity_cov = WassersteinLog()(means3D_final[1], means3D_final[0], cov3D_precomp[1], cov3D_precomp[0])        
         
         velocity = -velocity    
         velocity_cov = -velocity_cov
 
-        if torch.isnan(velocity).any():
-            print("velocity is nan")
-            import pdb ; pdb.set_trace()
-        if torch.isnan(velocity_cov).any():
-            print("velocity_cov is nan")
-            import pdb ; pdb.set_trace()
-            print("cov3D_precomp[1]:", cov3D_precomp[1])
-            print("cov3D_precomp[0]:", cov3D_precomp[0])
+        # predict_mean3D_2, predict_cov3D_2 = wasserstein_exp(loc=means3D_final[1], 
+        #                                                     scale1=scales_final[1]**2, 
+        #                                                     rot_matrix1=rot_matrix_final[1], 
+        #                                                     velocity=velocity, 
+        #                                                     velocity_cov=velocity_cov)
+        
+        ### log && exp wasserstein geodesic ，compute velocity and covariance velocity ------------------
+
+        ### Linear acceleration and prediction --------------------------------
+        # velocity = (timestamp_batch[2]-timestamp_batch[1])/(timestamp_batch[1]-timestamp_batch[0]+1e-8)*(means3D_final[1]-means3D_final[0])
+        # velocity_cov = ((timestamp_batch[2]-timestamp_batch[1])/(timestamp_batch[1]-timestamp_batch[0]+1e-8)).unsqueeze(2)*(cov3D_precomp[1]-cov3D_precomp[0])
 
         predict_mean3D_2, predict_cov3D_2 = wasserstein_exp(loc=means3D_final[1], 
-                                                            scale1=scales_final[1]**2, 
-                                                            rot_matrix1=rot_matrix_final[1], 
-                                                            velocity=velocity, 
-                                                            velocity_cov=velocity_cov)
+                                                    scale1=scales_final[1]**2, 
+                                                    rot_matrix1=rot_matrix_final[1], 
+                                                    velocity=velocity, 
+                                                    velocity_cov=velocity_cov)
+        ### Linear acceleration and prediction ---------------------------------------------------
         
 
         loc_merge_gaussian_2, cov_merge_gaussian_2 = gaussian_merge(predict_mean3D_2, predict_cov3D_2, means3D_final[2], cov3D_precomp[2])
 
-        loss_cross = wasserstein_distance(means3D_final[2], scales_final[2]**2, rot_matrix_final[2], predict_mean3D_2, cov2=predict_cov3D_2).mean() * 0.1
+        loss_cross = wasserstein_distance(means3D_final[2], scales_final[2]**2, rot_matrix_final[2], predict_mean3D_2, cov2=predict_cov3D_2).mean()
 
         # calculate Wasserstein distance loss
         loss_inter_frame_1_2 = wasserstein_distance(means3D_final[1], scales_final[1]**2, rot_matrix_final[1], 
@@ -117,7 +126,7 @@ def wass_training_step(gaussians,
                                                     means3D_final[1], scale2=scales_final[1]**2, rot_matrix2=rot_matrix_final[1]).mean()
         
         # add these two loss to the total loss
-        loss_cross += loss_inter_frame_1_2 * 0.01 + loss_inter_frame_0_1 * 0.01
+        loss_cross += loss_inter_frame_1_2 + loss_inter_frame_0_1
         
         # Render images
         render_image_obv_0 = render(viewpoint_cams[0], pc, pipe, background, stage=stage, 

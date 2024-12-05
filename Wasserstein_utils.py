@@ -172,6 +172,8 @@ def matrix_sqrt_H(A):
     return sqrt_A
 
 
+def symmetrize(A):
+    return (A + A.transpose(-1, -2))/2
 
 class WassersteinLog(nn.Module):
     def __init__(self):
@@ -179,38 +181,86 @@ class WassersteinLog(nn.Module):
 
     def forward(self, miu_1, miu_2, cov_1, cov_2):
         """
-        计算 Wasserstein log_cov1(cov2)
+        Compute Wasserstein Log with stricter filtering
         """
-
-        AB = torch.bmm(cov_1, cov_2)
-        # BA = torch.bmm(cov_2, cov_1)
-        # print("AB: ", AB.shape)
-
-        # 检查是否有异常值
-        if torch.isnan(AB).any() or torch.isinf(AB).any():
-            print("Found NaNs or Infs in AB")
-            import pdb; pdb.set_trace()
+        # 初始化零速度
+        zero_miu_vel = torch.zeros_like(miu_2 - miu_1)
+        zero_cov_vel = torch.zeros_like(cov_2 - cov_1)
         
-        # AB_sqrt = matrix_sqrt(AB)
-
-        #########
-        A_sqrt = matrix_sqrt_H(cov_1 + torch.eye(cov_1.shape[-1]).to(cov_1.device) * 1e-8)
+        # 更严格的筛选条件
+        stable_mask = torch.ones(miu_1.shape[0], dtype=torch.bool, device=miu_1.device)
         
-        A_sqrt_inv = torch.inverse(A_sqrt + torch.eye(cov_1.shape[-1]).to(cov_1.device) * 1e-8)
-
-        C = A_sqrt.bmm(cov_2).bmm(A_sqrt.transpose(-1, -2))
-
-        C_sqrt = matrix_sqrt_H(C + torch.eye(cov_1.shape[-1]).to(cov_1.device) * 1e-8)
-
-        cov_velocity = A_sqrt.bmm(C_sqrt).bmm(A_sqrt_inv.transpose(-1, -2)) 
-
-        cov_velocity = cov_velocity + cov_velocity.transpose(-1, -2) - 2*cov_1
-        #########
-
-
-        # cov_velocity = AB_sqrt + AB_sqrt.transpose(-1, -2) - 2*cov_1
-
-        return miu_2 - miu_1, cov_velocity
+        # 1. 更严格的值范围检查
+        max_cov_value = 1e4  # 降低阈值
+        min_cov_value = 1e-4  # 添加最小值阈值
+        
+        # 检查协方差矩阵的值范围
+        cov1_max = torch.abs(cov_1).max(dim=-1)[0].max(dim=-1)[0]
+        cov2_max = torch.abs(cov_2).max(dim=-1)[0].max(dim=-1)[0]
+        cov1_min = torch.abs(cov_1).min(dim=-1)[0].min(dim=-1)[0]
+        cov2_min = torch.abs(cov_2).min(dim=-1)[0].min(dim=-1)[0]
+        
+        stable_mask &= (cov1_max < max_cov_value) & (cov2_max < max_cov_value)
+        stable_mask &= (cov1_min > min_cov_value) & (cov2_min > min_cov_value)
+        
+        # 2. 检查对称性
+        cov1_symm_diff = torch.abs(cov_1 - cov_1.transpose(-1, -2)).max(dim=-1)[0].max(dim=-1)[0]
+        cov2_symm_diff = torch.abs(cov_2 - cov_2.transpose(-1, -2)).max(dim=-1)[0].max(dim=-1)[0]
+        symm_threshold = 1e-5
+        stable_mask &= (cov1_symm_diff < symm_threshold) & (cov2_symm_diff < symm_threshold)
+        
+        # 3. 检查行列式，确保矩阵不是奇异的
+        det_threshold = 1e-6
+        try:
+            det1 = torch.linalg.det(cov_1)
+            det2 = torch.linalg.det(cov_2)
+            stable_mask &= (det1.abs() > det_threshold) & (det2.abs() > det_threshold)
+        except:
+            pass
+        
+        # 4. 检查nan和inf
+        stable_mask &= ~torch.any(torch.isnan(cov_1).view(cov_1.shape[0], -1), dim=1)
+        stable_mask &= ~torch.any(torch.isnan(cov_2).view(cov_2.shape[0], -1), dim=1)
+        stable_mask &= ~torch.any(torch.isinf(cov_1).view(cov_1.shape[0], -1), dim=1)
+        stable_mask &= ~torch.any(torch.isinf(cov_2).view(cov_2.shape[0], -1), dim=1)
+        
+        # 5. 检查位置向量的范围
+        max_pos_value = 1e3
+        stable_mask &= (torch.abs(miu_1).max(dim=-1)[0] < max_pos_value)
+        stable_mask &= (torch.abs(miu_2).max(dim=-1)[0] < max_pos_value)
+        
+        # 如果没有稳定的点，直接返回零速度
+        if not stable_mask.any():
+            return zero_miu_vel, zero_cov_vel
+        
+        try:
+            # 只对稳定的点计算速度
+            miu_velocity = miu_2[stable_mask] - miu_1[stable_mask]
+            
+            # 计算协方差速度
+            L_A, Q_A = torch.linalg.eigh(symmetrize(cov_1[stable_mask]))
+            L_A = torch.clamp(L_A, min=1e-4)  # 提高最小特征值阈值
+            
+            A_sqrt = torch.bmm(Q_A, torch.bmm(L_A.sqrt().diag_embed(), Q_A.transpose(-1, -2)))
+            A_sqrt_inv = torch.bmm(Q_A, torch.bmm((1e-4+L_A.sqrt()).reciprocal().diag_embed(), Q_A.transpose(-1, -2)))
+            
+            C = A_sqrt.bmm(cov_2[stable_mask]).bmm(A_sqrt.transpose(-1, -2))
+            C = symmetrize(C)
+            C_sqrt = matrix_sqrt_H(C)
+            
+            cov_velocity = A_sqrt.bmm(C_sqrt).bmm(A_sqrt_inv.transpose(-1, -2))
+            cov_velocity = cov_velocity + cov_velocity.transpose(-1, -2) - cov_1[stable_mask] - cov_1[stable_mask].transpose(-1, -2)
+            
+            # 将计算结果放回完整的张量中
+            zero_miu_vel[stable_mask] = miu_velocity
+            zero_cov_vel[stable_mask] = cov_velocity
+            
+        except Exception as e:
+            print(f"Error in computation: {e}")
+            # 发生错误时返回零速度
+            pass
+        
+        return zero_miu_vel, zero_cov_vel
 
 
 
@@ -275,7 +325,7 @@ class GaussianMerge(nn.Module):
         rot_matrix1, rot_matrix2: Bx3x3
         """
 
-        # 防止矩阵求逆时出现奇异矩阵 modified by Junli
+        # 防止矩阵求逆���出现奇异矩阵 modified by Junli
         epsilon = 1e-6  # 或更小的值，视情况而定
 
         # 通过计算得到K
@@ -337,7 +387,7 @@ def test_wasser(B, loc, scale, rot, wasserstein_distance=True):
 
 def kalman_filter_update(stage, prev_gaussian_params, wasserstein_exp, max_history):
     '''
-    卡尔曼滤波求得当前帧的位置和协方差矩阵预测值
+    卡尔曼滤波求得当��帧的位置和协方差矩阵预测值
 
     参数:
     - stage: 当前处理的阶段，通常为 "fine"。
@@ -368,7 +418,7 @@ def kalman_filter_update(stage, prev_gaussian_params, wasserstein_exp, max_histo
         rot_quat_t_minus_1 = prev_gaussian_params[1][2]
         rot_matrix_t_minus_1 = quaternion_to_matrix(rot_quat_t_minus_1)  # 旋转矩阵 Bx3x3
 
-        # 注意：这里的输出将是当前帧（t）的预测参数
+        # 注意：这里的输出将是当前帧（t）的预���参数
         cov_t_minus_2 = torch.bmm(rot_matrix_t_minus_2, torch.bmm(torch.diag_embed(scale_t_minus_2), rot_matrix_t_minus_2.transpose(1, 2)))
         cov_t_minus_1 = torch.bmm(rot_matrix_t_minus_1, torch.bmm(torch.diag_embed(scale_t_minus_1), rot_matrix_t_minus_1.transpose(1, 2)))
 
@@ -528,7 +578,7 @@ def test_wasserstein_gaussian():
 
 
 '''
-检查SVD分解后是否可以恢复原始协方差矩阵
+检查SVD分解后是否可以恢复��始协方差矩阵
 '''
 def check_svd_recovery(cov_p, tolerance=1e-5):
     """

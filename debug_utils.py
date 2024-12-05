@@ -1,3 +1,13 @@
+"""
+Utility functions for debugging and visualization:
+
+- debug_print(): Print debug messages with file/line info
+- training_report_wandb(): Report metrics to W&B
+- add_text_to_video(): Add text overlay to videos
+- concatenate_videos_with_text(): Combine videos side by side
+- create_text_image(): Create text overlays
+"""
+
 import inspect
 import datetime
 import numpy as np
