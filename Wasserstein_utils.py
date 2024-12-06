@@ -93,46 +93,106 @@ class WassersteinExp(nn.Module):
         支持两种输入方式:
         1. loc, scale1, rot_matrix1, velocity, velocity_cov
         2. loc, cov1, velocity, velocity_cov
-
-        参数:
-        loc: Bx3
-        cov1: Bx3x3 (可选)
-        scale1: Bx3 (可选)
-        rot_matrix1: Bx3x3 (可选)
-        velocity: Bx3
-        velocity_cov: Bx3x3 
         """
+        # 初始化默认返回值
+        new_loc = loc + velocity
+        new_cov = cov1  # 初始化为输入的cov1
 
+        # 初始化稳定性检查掩码
+        stable_mask = torch.ones(loc.shape[0], dtype=torch.bool, device=loc.device)
+        
+        # 1. 检查输入的cov1是否有效
         if cov1 is not None:
-            # 如果输入是 cov1，则进行分解
-            scale1, rot_matrix1 = torch.linalg.eigh(cov1)
-            # 分解出来的 scale1 是已经平方过的
+            # 检查cov1的数值范围
+            cov_max = torch.abs(cov1).max(dim=-1)[0].max(dim=-1)[0]
+            cov_min = torch.abs(cov1).min(dim=-1)[0].min(dim=-1)[0]
+            stable_mask &= (cov_max < 1e4) & (cov_min > 1e-8)
+            
+            # 检查cov1的对称性
+            cov_symm_diff = torch.abs(cov1 - cov1.transpose(-1, -2)).max(dim=-1)[0].max(dim=-1)[0]
+            stable_mask &= (cov_symm_diff < 1e-5)
+            
+            # 检查cov1是否为正定矩阵
+            try:
+                det = torch.linalg.det(cov1)
+                stable_mask &= (det > 1e-8)
+            except:
+                print("Error computing determinant")
+                return new_loc, cov1  # 如果计算行列式失败，直接返回原始协方差
+
+            # 检查cov1是否包含nan或inf
+            stable_mask &= ~torch.any(torch.isnan(cov1).reshape(cov1.shape[0], -1), dim=1)
+            stable_mask &= ~torch.any(torch.isinf(cov1).reshape(cov1.shape[0], -1), dim=1)
+
+            # 只对稳定的样本进行特征值分解
+            try:
+                scale1_all = torch.zeros((cov1.shape[0], cov1.shape[1]), device=cov1.device)
+                rot_matrix1_all = torch.zeros_like(cov1)
+                
+                if stable_mask.any():
+                    scale1_stable, rot_matrix1_stable = torch.linalg.eigh(cov1[stable_mask])
+                    scale1_all[stable_mask] = scale1_stable
+                    rot_matrix1_all[stable_mask] = rot_matrix1_stable
+                
+                scale1 = scale1_all
+                rot_matrix1 = rot_matrix1_all
+            except Exception as e:
+                print(f"Error in eigendecomposition: {e}")
+                return new_loc, cov1  # 如果特征值分解失败，直接返回原始协方差
 
         assert scale1 is not None and rot_matrix1 is not None, "必须提供 scale1 和 rot_matrix1 或 cov1"
 
-        new_loc = loc + velocity
+        # 2. 检查数值范围
+        max_value = 1e4
+        min_value = 1e-8
+        
+        # 检查scale1的范围
+        stable_mask &= (scale1.abs().max(dim=-1)[0] < max_value)
+        stable_mask &= (scale1.abs().min(dim=-1)[0] > min_value)
+        
+        # 检查velocity_cov的范围
+        vel_cov_max = torch.abs(velocity_cov).max(dim=-1)[0].max(dim=-1)[0]
+        vel_cov_min = torch.abs(velocity_cov).min(dim=-1)[0].min(dim=-1)[0]
+        stable_mask &= (vel_cov_max < max_value) & (vel_cov_min > min_value)
+        
+        # 3. 检查对称性
+        vel_cov_symm_diff = torch.abs(velocity_cov - velocity_cov.transpose(-1, -2)).max(dim=-1)[0].max(dim=-1)[0]
+        symm_threshold = 1e-5
+        stable_mask &= (vel_cov_symm_diff < symm_threshold)
+        
+        # 4. 检查nan和inf
+        stable_mask &= ~torch.any(torch.isnan(rot_matrix1).reshape(rot_matrix1.shape[0], -1), dim=1)
+        stable_mask &= ~torch.any(torch.isnan(velocity_cov).reshape(velocity_cov.shape[0], -1), dim=1)
+        stable_mask &= ~torch.any(torch.isinf(rot_matrix1).reshape(rot_matrix1.shape[0], -1), dim=1)
+        stable_mask &= ~torch.any(torch.isinf(velocity_cov).reshape(velocity_cov.shape[0], -1), dim=1)
 
-        # new_cov = exp_A(X)
+        # 如果没有稳定的点，直接返回原始协方差
+        if not stable_mask.any():
+            return new_loc, cov1
 
-
-        # 检查 NaN 和 Inf
-        if torch.isnan(rot_matrix1).any() or torch.isnan(velocity_cov).any():
-            print("Found NaNs in rot_matrix1 or velocity_cov")
-            import pdb; pdb.set_trace()
-        if torch.isinf(rot_matrix1).any() or torch.isinf(velocity_cov).any():
-            print("Found Infs in rot_matrix1 or velocity_cov")
-
-        C_ij = rot_matrix1.transpose(1, 2).bmm(velocity_cov).bmm(rot_matrix1)
-       
-        E_ij = scale1.unsqueeze(-1) + scale1.unsqueeze(-2) # Bx3x3
-        E_ij = C_ij/(E_ij+1e-8) # Bx3x3
-
-        gamma = torch.bmm(rot_matrix1, torch.bmm(E_ij, rot_matrix1.transpose(1, 2)))
-
-        cov = torch.bmm(rot_matrix1, torch.bmm(torch.diag_embed(scale1), rot_matrix1.transpose(1, 2))) # covariance matrix Bx3x3
-
-        new_cov = cov + velocity_cov + gamma.bmm(cov).bmm(gamma.transpose(1, 2))
-
+        try:
+            # 只对稳定的点计算新的协方差
+            C_ij = rot_matrix1[stable_mask].transpose(1, 2).bmm(velocity_cov[stable_mask]).bmm(rot_matrix1[stable_mask])
+            
+            E_ij = scale1[stable_mask].unsqueeze(-1) + scale1[stable_mask].unsqueeze(-2)  # Bx3x3
+            E_ij = C_ij/(E_ij + 1e-8)  # Bx3x3
+            
+            gamma = torch.bmm(rot_matrix1[stable_mask], torch.bmm(E_ij, rot_matrix1[stable_mask].transpose(1, 2)))
+            
+            cov = torch.bmm(rot_matrix1, torch.bmm(torch.diag_embed(scale1), rot_matrix1.transpose(1, 2)))
+            
+            # 初始化new_cov为原始协方差
+            new_cov = cov1.clone()  # 使用输入的cov1而不是计算的cov
+            
+            # 只更新稳定点的协方差
+            new_cov[stable_mask] = (cov[stable_mask] + 
+                                  velocity_cov[stable_mask] + 
+                                  gamma.bmm(cov[stable_mask]).bmm(gamma.transpose(1, 2)))
+            
+        except Exception as e:
+            print(f"Error in computation: {e}")
+            return new_loc, cov1  # 如果计算失败，直接返回原始协方差
+            
         return new_loc, new_cov
 
 
@@ -325,7 +385,7 @@ class GaussianMerge(nn.Module):
         rot_matrix1, rot_matrix2: Bx3x3
         """
 
-        # 防止矩阵求逆���出现奇异矩阵 modified by Junli
+        # 防止矩阵求逆出现奇异矩阵 modified by Junli
         epsilon = 1e-6  # 或更小的值，视情况而定
 
         # 通过计算得到K
@@ -387,7 +447,7 @@ def test_wasser(B, loc, scale, rot, wasserstein_distance=True):
 
 def kalman_filter_update(stage, prev_gaussian_params, wasserstein_exp, max_history):
     '''
-    卡尔曼滤波求得当��帧的位置和协方差矩阵预测值
+    卡尔曼滤波求得当前帧的位置和协方差矩阵预测值
 
     参数:
     - stage: 当前处理的阶段，通常为 "fine"。
@@ -418,7 +478,7 @@ def kalman_filter_update(stage, prev_gaussian_params, wasserstein_exp, max_histo
         rot_quat_t_minus_1 = prev_gaussian_params[1][2]
         rot_matrix_t_minus_1 = quaternion_to_matrix(rot_quat_t_minus_1)  # 旋转矩阵 Bx3x3
 
-        # 注意：这里的输出将是当前帧（t）的预���参数
+        # 注意：这里的输出将是当前帧（t）的预参数
         cov_t_minus_2 = torch.bmm(rot_matrix_t_minus_2, torch.bmm(torch.diag_embed(scale_t_minus_2), rot_matrix_t_minus_2.transpose(1, 2)))
         cov_t_minus_1 = torch.bmm(rot_matrix_t_minus_1, torch.bmm(torch.diag_embed(scale_t_minus_1), rot_matrix_t_minus_1.transpose(1, 2)))
 
@@ -440,7 +500,7 @@ def kalman_filter_update(stage, prev_gaussian_params, wasserstein_exp, max_histo
 
 '''
 3dgs 源码中的函数：通过输入的高斯分布的scaling和rotation，构建出协方差矩阵
-注意：所有的 S 和 R 必须经过规范化，包括：
+注意：所有的 S 和 R 必须经���规范化，包括：
     S = torch.exp(S)
     R = F.normalize(R, p=2, dim=1)
 '''
@@ -578,7 +638,7 @@ def test_wasserstein_gaussian():
 
 
 '''
-检查SVD分解后是否可以恢复��始协方差矩阵
+检查SVD分解后是否可以恢复原始协方差矩阵
 '''
 def check_svd_recovery(cov_p, tolerance=1e-5):
     """
