@@ -121,15 +121,15 @@ def wass_training_step(gaussians,
         if iteration > 10000:
             loss_cross = wasserstein_distance(means3D_final[2], scales_final[2]**2, rot_matrix_final[2], predict_mean3D_2, cov2=predict_cov3D_2).mean()
 
-        # calculate Wasserstein distance loss
-        loss_inter_frame_1_2 = wasserstein_distance(means3D_final[1], scales_final[1]**2, rot_matrix_final[1], 
+            # calculate Wasserstein distance loss
+            loss_inter_frame_1_2 = wasserstein_distance(means3D_final[1], scales_final[1]**2, rot_matrix_final[1], 
                                                     means3D_final[2], scale2=scales_final[2]**2, rot_matrix2=rot_matrix_final[2]).mean()
-        
-        loss_inter_frame_0_1 = wasserstein_distance(means3D_final[0], scales_final[0]**2, rot_matrix_final[0], 
-                                                    means3D_final[1], scale2=scales_final[1]**2, rot_matrix2=rot_matrix_final[1]).mean()
-        
-        # add these two loss to the total loss
-        loss_cross += loss_inter_frame_1_2 + loss_inter_frame_0_1
+            
+            loss_inter_frame_0_1 = wasserstein_distance(means3D_final[0], scales_final[0]**2, rot_matrix_final[0], 
+                                                        means3D_final[1], scale2=scales_final[1]**2, rot_matrix2=rot_matrix_final[1]).mean()
+            
+            # add these two loss to the total loss
+            loss_cross += loss_inter_frame_1_2 + loss_inter_frame_0_1
         
         # Render images
         render_image_obv_0 = render(viewpoint_cams[0], pc, pipe, background, stage=stage, 
