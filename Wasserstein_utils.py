@@ -439,7 +439,7 @@ def kalman_filter_update(stage, prev_gaussian_params, wasserstein_exp, max_histo
 
 
 '''
-4dgs 源码中的函数：通过输入的高斯分布的scaling和rotation，构建出协方差矩阵
+3dgs 源码中的函数：通过输入的高斯分布的scaling和rotation，构建出协方差矩阵
 注意：所有的 S 和 R 必须经过规范化，包括：
     S = torch.exp(S)
     R = F.normalize(R, p=2, dim=1)
@@ -505,12 +505,12 @@ def build_covariance_from_scaling_rotation(scaling, scaling_modifier, rotation):
 '''
 def test_cov(R,S):
 
-    print("采用 4dgs 源码中的方式计算协方差矩阵")
+    print("采用 3dgs 源码中的方式计算协方差矩阵")
     print("R:", R.shape)
     print("S:", S.shape)
-    _, conv_4dgs = build_covariance_from_scaling_rotation(S, 1, R) # == get_covariance(
-    # print("cov in 4dgs: ", conv_4dgs.shape )
-    # print("cov in 4dgs: ", conv_4dgs )
+    _, conv_3dgs = build_covariance_from_scaling_rotation(S, 1, R) # == get_covariance(
+    # print("cov in 3dgs: ", conv_3dgs.shape )
+    # print("cov in 3dgs: ", conv_3dgs )
 
     
     print("采用yihao的方式计算协方差矩阵")
@@ -525,9 +525,9 @@ def test_cov(R,S):
     # print("cov in my way: ", cov)
 
     # 减法
-    print("cov diff: ", torch.abs(cov.cuda() - conv_4dgs).max())
+    print("cov diff: ", torch.abs(cov.cuda() - conv_3dgs).max())
 
-    if torch.abs(cov.cuda() - conv_4dgs).max() < 1e-5:
+    if torch.abs(cov.cuda() - conv_3dgs).max() < 1e-5:
         print("cov matrix is the same.")
     else:
         print("cov matrix is different.")

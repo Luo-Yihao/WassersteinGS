@@ -181,9 +181,9 @@ def main():
     # other_name_1 = "jumpingjacks_origin"
     other_name_1 = "jumpingjacks_kalman_wasserstein_between_frame"
     other_name_2 = "jumpingjacks_kalman_wasserstein_log"
-    # text1 = "4dgs"
-    text1 = "4dgs_kalman_wasserstein_between_frame"
-    text2 = "4dgs_kalman_wasserstein_log"
+
+    text1 = "kalman_wasserstein_between_frame"
+    text2 = "kalman_wasserstein_log"
 
     # 更新路径
     video1_path = video1_base_path.replace("视频文件夹1", other_name_1)
