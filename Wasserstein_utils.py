@@ -68,12 +68,12 @@ class WassersteinGaussian(nn.Module):
         CovWasserstein = torch.clamp(CovWasserstein, min=0)
 
         # 添加调试信息
-        if torch.isnan(CovWasserstein).any() or torch.isinf(CovWasserstein).any():
-            print("CovWasserstein contains NaN or Inf")
-            print("scale1:", scale1)
-            print("cov2:", cov2)
-            print("E_eign:", E_eign)
-            print("E_sqrt_trace:", E_sqrt_trace)
+        # if torch.isnan(CovWasserstein).any() or torch.isinf(CovWasserstein).any():
+        #     print("CovWasserstein contains NaN or Inf")
+        #     print("scale1:", scale1)
+        #     print("cov2:", cov2)
+        #     print("E_eign:", E_eign)
+        #     print("E_sqrt_trace:", E_sqrt_trace)
 
         # 返回 Wasserstein 距离
         # return torch.sqrt(loc_diff2 + CovWasserstein)
@@ -96,7 +96,12 @@ class WassersteinExp(nn.Module):
         """
         # 初始化默认返回值
         new_loc = loc + velocity
-        new_cov = cov1  # 初始化为输入的cov1
+        if cov1 is not None:
+            new_cov = cov1  # 初始化为输入的cov1
+        elif scale1 is not None and rot_matrix1 is not None:
+            new_cov = torch.bmm(rot_matrix1, torch.bmm(torch.diag_embed(scale1), rot_matrix1.transpose(1, 2)))
+        else:
+            raise ValueError("必须提供 scale1 和 rot_matrix1 或 cov1")
 
         # 初始化稳定性检查掩码
         stable_mask = torch.ones(loc.shape[0], dtype=torch.bool, device=loc.device)
@@ -182,7 +187,12 @@ class WassersteinExp(nn.Module):
             cov = torch.bmm(rot_matrix1, torch.bmm(torch.diag_embed(scale1), rot_matrix1.transpose(1, 2)))
             
             # 初始化new_cov为原始协方差
-            new_cov = cov1.clone()  # 使用输入的cov1而不是计算的cov
+            if cov1 is not None:
+                new_cov = cov1.clone()  # 使用输入的cov1而不是计算的cov
+            elif scale1 is not None and rot_matrix1 is not None:
+                new_cov = (torch.bmm(rot_matrix1, torch.bmm(torch.diag_embed(scale1), rot_matrix1.transpose(1, 2)))).clone()
+            else:
+                raise ValueError("必须提供 scale1 和 rot_matrix1, 或 cov1")
             
             # 只更新稳定点的协方差
             new_cov[stable_mask] = (cov[stable_mask] + 
@@ -389,7 +399,14 @@ class GaussianMerge(nn.Module):
         epsilon = 1e-6  # 或更小的值，视情况而定
 
         # 通过计算得到K
-        K = cov1.matmul((cov1 + cov2 + torch.eye(cov1.shape[-1]).to(cov1.device) * epsilon).inverse())
+        try:
+            K = cov1.matmul((cov1 + cov2 + torch.eye(cov1.shape[-1]).to(cov1.device) * epsilon).inverse())
+        except:
+            print("cov1 contains None:", torch.any(cov1 == None))
+            print("cov2 contains None:", torch.any(cov2 == None))
+            # print("cov1:", cov1)
+            # print("cov2:", cov2)
+            import pdb; pdb.set_trace()
 
         # # 将协方差矩阵展平并拼接
         # cov_input = torch.cat([cov1.view(cov1.shape[0], -1), cov2.view(cov2.shape[0], -1)], dim=1)

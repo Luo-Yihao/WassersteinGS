@@ -113,6 +113,7 @@ def wass_training_step(gaussians,
                                                     velocity_cov=velocity_cov)
         ### Linear acceleration and prediction ---------------------------------------------------
         
+        # Check if any covariance matrices are None
 
         loc_merge_gaussian_2, cov_merge_gaussian_2 = gaussian_merge(predict_mean3D_2, predict_cov3D_2, means3D_final[2], cov3D_precomp[2])
 
