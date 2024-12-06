@@ -117,7 +117,9 @@ def wass_training_step(gaussians,
 
         loc_merge_gaussian_2, cov_merge_gaussian_2 = gaussian_merge(predict_mean3D_2, predict_cov3D_2, means3D_final[2], cov3D_precomp[2])
 
-        loss_cross = wasserstein_distance(means3D_final[2], scales_final[2]**2, rot_matrix_final[2], predict_mean3D_2, cov2=predict_cov3D_2).mean()
+        loss_cross = 0.0
+        if iteration > 10000:
+            loss_cross = wasserstein_distance(means3D_final[2], scales_final[2]**2, rot_matrix_final[2], predict_mean3D_2, cov2=predict_cov3D_2).mean()
 
         # calculate Wasserstein distance loss
         loss_inter_frame_1_2 = wasserstein_distance(means3D_final[1], scales_final[1]**2, rot_matrix_final[1], 
