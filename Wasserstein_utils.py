@@ -157,8 +157,7 @@ class WassersteinExp(nn.Module):
         
         # 检查velocity_cov的范围
         vel_cov_max = torch.abs(velocity_cov).max(dim=-1)[0].max(dim=-1)[0]
-        vel_cov_min = torch.abs(velocity_cov).min(dim=-1)[0].min(dim=-1)[0]
-        stable_mask &= (vel_cov_max < max_value) & (vel_cov_min > min_value)
+        stable_mask &= (vel_cov_max < max_value)
         
         # 3. 检查对称性
         vel_cov_symm_diff = torch.abs(velocity_cov - velocity_cov.transpose(-1, -2)).max(dim=-1)[0].max(dim=-1)[0]
@@ -173,7 +172,10 @@ class WassersteinExp(nn.Module):
 
         # 如果没有稳定的点，直接返回原始协方差
         if not stable_mask.any():
-            return new_loc, cov1
+            if cov1 is not None:
+                return new_loc, cov1
+            else:
+                return new_loc, (torch.bmm(rot_matrix1, torch.bmm(torch.diag_embed(scale1), rot_matrix1.transpose(1, 2))))
 
         try:
             # 只对稳定的点计算新的协方差
@@ -402,8 +404,8 @@ class GaussianMerge(nn.Module):
         try:
             K = cov1.matmul((cov1 + cov2 + torch.eye(cov1.shape[-1]).to(cov1.device) * epsilon).inverse())
         except:
-            print("cov1 contains None:", torch.any(cov1 == None))
-            print("cov2 contains None:", torch.any(cov2 == None))
+            print("cov1 contains None:", cov1 is None)
+            print("cov2 contains None:", cov2 is None)
             # print("cov1:", cov1)
             # print("cov2:", cov2)
             import pdb; pdb.set_trace()
