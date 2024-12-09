@@ -6,6 +6,7 @@ def matrix_sqrt_H(A):
     """
     Calculate the square root of a Hermitian matrix
     """
+    A = symmetrize(A)
     L, Q = torch.linalg.eigh(A)
     # sqrt_A = torch.bmm(Q, torch.bmm(L.sqrt().diag_embed(), Q.transpose(-1, -2)))
 
@@ -34,7 +35,7 @@ class WassersteinDistGS(nn.Module):
         cov0, cov1: Bx3x3, optional
         """
         if cov0 is not None:
-            
+            cov0 = symmetrize(cov0)
             scale0, rot_matrix0 = torch.linalg.eigh(cov0)
             scale0 = torch.clamp(scale0, min=1e-8)
 
@@ -197,8 +198,8 @@ if __name__ == "__main__":
     cov_1 = cov_1.bmm(cov_1.transpose(1, 2))+1e-8*torch.eye(3).to(device).unsqueeze(0) # make it positive definite
 
     # Eigenvalue decomposition (Optional)
-    scale_0, rot_matrix_0 = torch.linalg.eigh(cov_0) # R@diag(S)@R^T = cov0
-    scale_1, rot_matrix_1 = torch.linalg.eigh(cov_1) # R@diag(S)@R^T = cov1
+    scale_0, rot_matrix_0 = torch.linalg.eigh(symmetrize(cov_0)) # R@diag(S)@R^T = cov0
+    scale_1, rot_matrix_1 = torch.linalg.eigh(symmetrize(cov_1)) # R@diag(S)@R^T = cov1
 
     wasserstein_dist = WassersteinDistGS()(loc_0, scale_0, rot_matrix_0, loc_1, scale_1, rot_matrix_1)
     assert (wasserstein_dist >= 0).all(), "Wasserstein distance should be non-negative"
