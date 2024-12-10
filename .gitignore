@@ -125,6 +125,7 @@ submodules/simple-knn
 SIBR_viewers/
 # render.py
 render_batch.py
+render_video.py
 output/
 check_cuda.py
 

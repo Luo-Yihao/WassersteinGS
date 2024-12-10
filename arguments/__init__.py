@@ -113,7 +113,7 @@ class OptimizationParams(ParamGroup):
         self.zerostamp_init=False
         self.custom_sampler=None
         self.iterations = 30_000
-        self.coarse_iterations = 3000 # origin 3000
+        self.coarse_iterations = 3000 
         # debug_print("为了调试方便 ！！！coarse_iterations: " + str(self.coarse_iterations))
         self.position_lr_init = 0.00016
         self.position_lr_final = 0.0000016
