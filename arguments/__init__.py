@@ -74,9 +74,9 @@ class PipelineParams(ParamGroup):
         super().__init__(parser, "Pipeline Parameters")
 class ModelHiddenParams(ParamGroup):
     def __init__(self, parser):
-        self.net_width = 64 # width of deformation MLP, larger will increase the rendering quality and decrase the training/rendering speed.
+        self.net_width = 128 # 64 # width of deformation MLP, larger will increase the rendering quality and decrase the training/rendering speed.
         self.timebase_pe = 4 # useless
-        self.defor_depth = 1 # depth of deformation MLP, larger will increase the rendering quality and decrase the training/rendering speed.
+        self.defor_depth = 2 # 1 # depth of deformation MLP, larger will increase the rendering quality and decrase the training/rendering speed.
         self.posebase_pe = 10 # useless
         self.scale_rotation_pe = 2 # useless
         self.opacity_pe = 2 # useless
